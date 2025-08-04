@@ -1,6 +1,9 @@
 #app binary
 ttrace
 
+#generated header
+vmlinux.h
+
 # Prerequisites
 *.d
 
