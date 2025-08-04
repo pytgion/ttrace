@@ -1,17 +1,30 @@
 APP = ttrace
 BINARY = ttrace
 
-CC = gcc
+APPOBJS = $(APP).o
+BPFOBJ = $(APP).bpf.o
+
 CXX = g++
 CLANG = clang
 LDLIBS = -lelf -lbpf
 CXXFLAGS = -g -O2 -Wall
-APPOBJS = $(APP).o
-BPFOBJ = $(APP).bpf.o
+LDFLAGS =
 
+ARCH := $(shell uname -m)
+
+BPF_CFLAGS = -g -O2 -target bpf
+
+ifeq ($(ARCH),x86_64)
+	BPF_CFLAGS += -D__TARGET_ARCH_x86
+else ifeq ($(ARCH),aarch64)
+	BPF_CFLAGS += -D__TARGET_ARCH_arm64
+else ifeq ($(ARCH),riscv64)
+	BPF_CFLAGS += -D__TARGET_ARCH_riscv
+else
+	$(error Unsupported architecture: $(ARCH))
+endif
 
 all: $(BINARY)
-
 
 $(BINARY): $(APPOBJS) $(BPFOBJ)
 	@echo "LINKING  $@"
@@ -23,7 +36,7 @@ $(APP).o: $(APP).cpp vmlinux.h
 
 $(BPFOBJ): $(APP).bpf.c vmlinux.h
 	@echo "CLANG    $<"
-	$(CLANG) -g -O2 -target bpf -c $< -o $@
+	$(CLANG) $(BPF_CFLAGS) -c $< -o $@
 
 vmlinux.h:
 	@echo "BTF      $@"
@@ -33,4 +46,12 @@ clean:
 	@echo "CLEAN"
 	rm -f $(BINARY) $(APPOBJS) $(BPFOBJ) vmlinux.h
 
-.PHONY: all clean
+install: $(BINARY)
+	@echo "INSTALL  $(BINARY) to $(DESTDIR)$(PREFIX)/bin"
+	install -D -m 0755 $(BINARY) $(DESTDIR)$(PREFIX)/bin/$(BINARY)
+
+uninstall:
+	@echo "UNINSTALL $(BINARY) from $(DESTDIR)$(PREFIX)/bin"
+	rm -f $(DESTDIR)$(PREFIX)/bin/$(BINARY)
+
+.PHONY: all clean install unintsall
